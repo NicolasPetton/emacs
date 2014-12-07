@@ -70,14 +70,21 @@ Then evaluate RESULT to get return value, default nil.
 
 (defun seq-drop (seq n)
   "Return a subsequence of SEQ without its first N elements.
-The result is a sequence of the same type as SEQ."
-  (let ((length (seq-length seq)))
-    (seq-subseq seq (min n length) length)))
+The result is a sequence of the same type as SEQ.
+
+If N is a negative integer or zero, SEQ is returned."
+  (if (<= n 0)
+      seq
+    (let ((length (seq-length seq)))
+      (seq-subseq seq (min n length) length))))
 
 (defun seq-take (seq n)
   "Return a subsequence of SEQ with its first N elements.
-The result is a sequence of the same type as SEQ."
-  (seq-subseq seq 0 (min n (seq-length seq))))
+The result is a sequence of the same type as SEQ.
+
+If N is a negative integer or zero, an empty sequence is
+returned."
+  (seq-subseq seq 0 (min (max n 0) (seq-length seq))))
 
 (defun seq-drop-while (pred seq)
   "Return a sequence, from the first element for which (PRED element) is nil, of SEQ.
@@ -114,9 +121,9 @@ The result is a sequence of the same type as SEQ."
 (defun seq-reduce (function seq initial-value)
   "Reduce the function FUNCTION across SEQ, starting with INITIAL-VALUE.
 
-Return the result of applying FUNCTION to INITIAL-VALUE and the
-first element of SEQ, then applying FUNCTION to that result and
-the second element of SEQ, then to that result and the third
+Return the result of calling FUNCTION with INITIAL-VALUE and the
+first element of SEQ, then calling FUNCTION with that result and
+the second element of SEQ, then with that result and the third
 element of SEQ, etc.
 
 If SEQ is empty, return INITIAL-VALUE and FUNCTION is not called."
@@ -144,7 +151,7 @@ If SEQ is empty, return INITIAL-VALUE and FUNCTION is not called."
     t))
 
 (defun seq-count (pred seq)
-  "Return the number of elements for which (PRED element) in non-nil in seq."
+  "Return the number of elements for which (PRED element) returns non-nil in seq."
   (let ((count 0))
     (seq-doseq (elt seq)
       (when (funcall pred elt)
@@ -174,7 +181,7 @@ Equality is defined by TESTFN if non-nil or by `equal' if nil."
 
 (defun seq-uniq (seq &optional testfn)
   "Return a list of the elements of SEQ with duplicates removed.
-Use TESTFN to compare elements, or `equal' if TESTFN is nil."
+TESTFN is used to compare elements, or `equal' if TESTFN is nil."
   (let ((result '()))
     (seq-doseq (elt seq)
       (unless (seq-contains-p result elt testfn)
