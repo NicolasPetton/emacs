@@ -76,8 +76,10 @@ The result is a sequence of the same type as SEQ.
 If N is a negative integer or zero, SEQ is returned."
   (if (<= n 0)
       seq
-    (let ((length (seq-length seq)))
-      (seq-subseq seq (min n length) length))))
+    (if (listp seq)
+        (seq--drop-list seq n)
+      (let ((length (seq-length seq)))
+        (seq-subseq seq (min n length) length)))))
 
 (defun seq-take (seq n)
   "Return a subsequence of SEQ with its first N elements.
@@ -85,25 +87,23 @@ The result is a sequence of the same type as SEQ.
 
 If N is a negative integer or zero, an empty sequence is
 returned."
-  (seq-subseq seq 0 (min (max n 0) (seq-length seq))))
+  (if (listp seq)
+      (seq--take-list seq n)
+    (seq-subseq seq 0 (min (max n 0) (seq-length seq)))))
 
 (defun seq-drop-while (pred seq)
   "Return a sequence, from the first element for which (PRED element) is nil, of SEQ.
 The result is a sequence of the same type as SEQ."
-  (let ((n 0))
-    (while (and (< n (seq-length seq))
-                (funcall pred (seq-elt seq n)))
-      (setq n (+ 1 n)))
-    (seq-drop seq n)))
+  (if (listp seq)
+      (seq--drop-while-list pred seq)
+    (seq-drop seq (seq--count-successive pred seq))))
 
 (defun seq-take-while (pred seq)
   "Return a sequence of the successive elements for which (PRED element) is non-nil in SEQ.
 The result is a sequence of the same type as SEQ."
-  (let ((n 0))
-    (while (and (< n (seq-length seq))
-                (funcall pred (seq-elt seq n)))
-      (setq n (+ 1 n)))
-    (seq-take seq n)))
+  (if (listp seq)
+      (seq--take-while-list pred seq)
+    (seq-take seq (seq--count-successive pred seq))))
 
 (defun seq-filter (pred seq)
   "Return a list of all the elements for which (PRED element) is non-nil in SEQ."
@@ -161,7 +161,9 @@ If SEQ is empty, return INITIAL-VALUE and FUNCTION is not called."
 
 (defun seq-empty-p (seq)
   "Return non-nil if the sequence SEQ is empty, nil otherwise."
-  (= 0 (seq-length seq)))
+  (if (listp seq)
+      (null seq)
+    (= 0 (seq-length seq))))
 
 (defun seq-sort (pred seq)
   "Return a sorted sequence comparing using PRED the elements of SEQ.
@@ -217,6 +219,43 @@ TYPE must be one of following symbols: vector, string or list.
     (`string (apply #'concat seqs))
     (`list (apply #'append (append seqs '(nil))))
     (t (error "Not a sequence type name: %s" type))))
+
+(defun seq--drop-list (list n)
+  "Optimized version of `seq-drop' for lists."
+  (while (and list (> n 0))
+    (setq list (cdr list)
+          n (1- n)))
+  list)
+
+(defun seq--take-list (list n)
+  "Optimized version of `seq-take' for lists."
+  (let ((result '()))
+    (while (and list (> n 0))
+      (setq n (1- n))
+      (push (pop list) result))
+    (nreverse result)))
+
+(defun seq--drop-while-list (pred list)
+  "Optimized version of `seq-drop-while' for lists."
+  (while (and list (funcall pred (car list)))
+    (setq list (cdr list)))
+  list)
+
+(defun seq--take-while-list (pred list)
+  "Optimized version of `seq-take-while' for lists."
+  (let ((result '()))
+    (while (and list (funcall pred (car list)))
+      (push (pop list) result))
+    (nreverse result)))
+
+(defun seq--count-successive (pred seq)
+  "Return the number of successive elements for which (PRED element) is non-nil in SEQ."
+  (let ((n 0)
+        (len (seq-length seq)))
+    (while (and (< n len)
+                (funcall pred (seq-elt seq n)))
+      (setq n (+ 1 n)))
+    n))
 
 (defalias 'seq-copy #'copy-sequence)
 (defalias 'seq-elt #'elt)
